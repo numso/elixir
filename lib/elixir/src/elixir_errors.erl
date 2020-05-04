@@ -5,7 +5,7 @@
 %% the line number to be none (as it may happen in some erlang errors).
 -module(elixir_errors).
 -export([compile_error/3, compile_error/4, warning_prefix/0,
-         form_error/4, form_warn/4, parse_error/4, erl_warn/3, io_warn/4]).
+         form_error/4, form_warn/4, parse_error/4, erl_warn/3, io_warn/4, io_error/4]).
 -include("elixir.hrl").
 
 %% Low-level warning, should be used only from Erlang passes.
@@ -26,6 +26,19 @@ warning_prefix() ->
   case application:get_env(elixir, ansi_enabled) of
     {ok, true} -> <<"\e[33mwarning: \e[0m">>;
     _ -> <<"warning: ">>
+  end.
+
+%% Low-level error, allows compilation to finish before error is returned
+-spec io_error(non_neg_integer() | nil, unicode:chardata() | nil, unicode:chardata(), unicode:chardata()) -> ok.
+io_error(Line, File, LogMessage, PrintMessage) when is_integer(Line) or (Line == nil), is_binary(File) or (File == nil) ->
+  send_error(Line, File, LogMessage),
+  print_error(PrintMessage).
+
+-spec error_prefix() -> binary().
+error_prefix() ->
+  case application:get_env(elixir, ansi_enabled) of
+    {ok, true} -> <<"\e[31merror: \e[0m">>;
+    _ -> <<"error: ">>
   end.
 
 %% General forms handling.
@@ -169,6 +182,17 @@ send_warning(Line, File, Message) ->
   case get(elixir_compiler_pid) of
     undefined -> ok;
     CompilerPid -> CompilerPid ! {warning, File, Line, Message}
+  end,
+  ok.
+
+print_error(Message) ->
+  io:put_chars(standard_error, [error_prefix(), Message, $\n]),
+  ok.
+
+send_error(Line, File, Message) ->
+  case get(elixir_compiler_pid) of
+    undefined -> ok;
+    CompilerPid -> CompilerPid ! {error, File, Line, Message}
   end,
   ok.
 

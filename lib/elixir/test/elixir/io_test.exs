@@ -157,6 +157,29 @@ defmodule IOTest do
            """
   end
 
+  test "error with chardata" do
+    assert capture_io(:stderr, fn -> IO.error("hello") end) =~
+             "hello\n  (ex_unit #{System.version()}) lib/ex_unit"
+
+    assert capture_io(:stderr, fn -> IO.error('hello') end) =~
+             "hello\n  (ex_unit #{System.version()}) lib/ex_unit"
+
+    assert capture_io(:stderr, fn -> IO.error(:hello) end) =~
+             "hello\n  (ex_unit #{System.version()}) lib/ex_unit"
+
+    assert capture_io(:stderr, fn -> IO.error(13) end) =~
+             "13\n  (ex_unit #{System.version()}) lib/ex_unit"
+
+    assert capture_io(:stderr, fn -> IO.error("hello", []) end) =~ "hello\n"
+
+    stacktrace = [{IEx.Evaluator, :eval, 4, [file: 'lib/iex/evaluator.ex', line: 108]}]
+
+    assert capture_io(:stderr, fn -> IO.error("hello", stacktrace) end) =~ """
+           hello
+             lib/iex/evaluator.ex:108: IEx.Evaluator.eval/4
+           """
+  end
+
   test "write with chardata" do
     assert capture_io(fn -> IO.write("hello") end) == "hello"
     assert capture_io(fn -> IO.write('hello') end) == "hello"

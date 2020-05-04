@@ -298,7 +298,66 @@ defmodule IO do
   end
 
   @doc """
-  Writes a `message` to stderr, along with the given `stacktrace`.
+  Writes an error `message` to stderr, along with the given `stacktrace`.
+
+  This function also notifies the compiler an error was printed.
+  It returns `:ok` if it succeeds.
+
+  An empty list can be passed to avoid stacktrace printing.
+
+  ## Examples
+
+      stacktrace = [{MyApp, :main, 1, [file: 'my_app.ex', line: 4]}]
+      IO.error("variable bar is malformed", stacktrace)
+      #=> error: variable bar is malformed
+      #=>   my_app.ex:4: MyApp.main/1
+
+  """
+  @spec error(chardata | String.Chars.t(), Exception.stacktrace()) :: :ok
+  def error(message, []) do
+    message = [to_chardata(message), ?\n]
+    :elixir_errors.io_error(nil, nil, message, message)
+  end
+
+  def error(message, [{_, _, _, opts} | _] = stacktrace) do
+    message = to_chardata(message)
+    formatted_trace = Enum.map_join(stacktrace, "\n  ", &Exception.format_stacktrace_entry(&1))
+    line = opts[:line]
+    file = opts[:file]
+
+    :elixir_errors.io_error(
+      line,
+      file && List.to_string(file),
+      message,
+      [message, ?\n, "  ", formatted_trace, ?\n]
+    )
+  end
+
+  @doc """
+  Writes an error `message` to stderr, along with the current stacktrace.
+
+  It returns `:ok` if it succeeds.
+
+  Do not call this function at the tail of another function. Due to tail
+  call optimization, a stacktrace entry would not be added and the
+  stacktrace would be incorrectly trimmed. Therefore make sure at least
+  one expression (or an atom such as `:ok`) follows the `IO.error/1` call.
+
+  ## Examples
+
+      IO.error("variable bar is malformed")
+      #=> error: variable bar is malformed
+      #=>   (iex) evaluator.ex:108: IEx.Evaluator.eval/4
+
+  """
+  @spec error(chardata | String.Chars.t()) :: :ok
+  def error(message) do
+    {:current_stacktrace, stacktrace} = Process.info(self(), :current_stacktrace)
+    error(message, Enum.drop(stacktrace, 2))
+  end
+
+  @doc """
+  Writes a warning `message` to stderr, along with the given `stacktrace`.
 
   This function also notifies the compiler a warning was printed
   (in case --warnings-as-errors was enabled). It returns `:ok`
@@ -347,7 +406,7 @@ defmodule IO do
   end
 
   @doc """
-  Writes a `message` to stderr, along with the current stacktrace.
+  Writes a warning `message` to stderr, along with the current stacktrace.
 
   It returns `:ok` if it succeeds.
 

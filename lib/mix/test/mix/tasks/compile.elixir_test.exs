@@ -635,6 +635,26 @@ defmodule Mix.Tasks.Compile.ElixirTest do
     end)
   end
 
+  test "returns error diagnostics for external files" do
+    in_fixture("no_mixfile", fn ->
+      File.write!("lib/a.ex", """
+      IO.error "error", [{nil, nil, 0, file: 'lib/foo.txt', line: 3}]
+      """)
+
+      diagnostic = %Diagnostic{
+        file: Path.absname("lib/foo.txt"),
+        severity: :error,
+        position: 3,
+        compiler_name: "Elixir",
+        message: "error"
+      }
+
+      capture_io(:stderr, fn ->
+        assert {:error, [^diagnostic]} = Mix.Tasks.Compile.Elixir.run([])
+      end)
+    end)
+  end
+
   test "returns warning diagnostics for unused imports" do
     in_fixture("no_mixfile", fn ->
       File.write!("lib/a.ex", """
