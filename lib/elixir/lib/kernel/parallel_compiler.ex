@@ -324,7 +324,6 @@ defmodule Kernel.ParallelCompiler do
     cycle_return = each_cycle_return(state.each_cycle.())
     state = cycle_timing(result, state)
 
-    # TODO:: Handle warnings Here
     case cycle_return do
       {:runtime, dependent_modules, extra_warnings} ->
         verify_modules(result, extra_warnings ++ warnings, errors, dependent_modules, state)
@@ -384,8 +383,8 @@ defmodule Kernel.ParallelCompiler do
         )
 
       true ->
-        errors1 = handle_deadlock(waiting, files)
-        {:error, errors1 ++ errors, warnings}
+        deadlock_errors = handle_deadlock(waiting, files)
+        {:error, deadlock_errors ++ errors, warnings}
     end
   end
 
@@ -600,8 +599,8 @@ defmodule Kernel.ParallelCompiler do
           :ok ->
             wait_for_messages(queue, spawned - 1, waiting, files, result, warnings, errors, state)
 
-          {:error, errors1} ->
-            {:error, errors1 ++ errors, warnings}
+          {:error, down_errors} ->
+            {:error, down_errors ++ errors, warnings}
         end
     end
   end
